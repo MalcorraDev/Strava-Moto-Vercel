@@ -1,0 +1,3 @@
+import { getSupabase, send, onlyMethods, handleError } from '../_lib/supabase.js';
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export default async function handler(req,res){if(req.method==='OPTIONS')return send(res,200,{ok:true});if(req.method!=='GET')return onlyMethods(res,['GET','OPTIONS']);const id=String(req.query.id||'');if(!uuid.test(id))return send(res,400,{error:'ID do usuário deve ser UUID válido.'});try{const db=getSupabase();const {data,error}=await db.from('usuarios').select('id,nome,email,foto_url,premium,criado_em').eq('id',id).maybeSingle();if(error)throw error;if(!data)return send(res,404,{error:'Usuário não encontrado.'});return send(res,200,{data});}catch(e){return handleError(res,e);}}
