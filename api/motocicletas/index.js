@@ -1,3 +1,54 @@
-import { getSupabase, send, onlyMethods, handleError } from '../_lib/supabase.js';
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-export default async function handler(req,res){ if(req.method==='OPTIONS')return send(res,200,{ok:true}); try { const db=getSupabase(); if(req.method==='GET'){const uid=String(req.query.usuario_id||''); if(!uuid.test(uid))return send(res,400,{error:'usuario_id deve ser um UUID válido.'}); const {data,error}=await db.from('motocicletas').select('*').eq('usuario_id',uid).order('criado_em',{ascending:false}); if(error)throw error; return send(res,200,{data});} if(req.method==='POST'){const b=req.body||{}; if(!uuid.test(String(b.usuario_id||'')))return send(res,400,{error:'usuario_id deve ser um UUID válido.'}); if(typeof b.modelo!=='string'||!b.modelo.trim())return send(res,400,{error:'O modelo é obrigatório.'}); const cc=Number(b.cilindrada),cons=b.consumo_km_l==null||b.consumo_km_l===''?null:Number(b.consumo_km_l); if(!Number.isInteger(cc)||cc<=0)return send(res,400,{error:'Cilindrada deve ser um inteiro positivo.'}); if(cons!==null&&(!Number.isFinite(cons)||cons<=0))return send(res,400,{error:'Consumo deve ser positivo.'}); const {data,error}=await db.from('motocicletas').insert({usuario_id:b.usuario_id,modelo:b.modelo.trim(),cilindrada:cc,consumo_km_l:cons}).select().single(); if(error)throw error; return send(res,201,{data});} return onlyMethods(res,['GET','POST','OPTIONS']); }catch(e){return handleError(res,e);} }
+import { requireAppUser, send, onlyMethods, handleError } from '../_lib/supabase.js';
+
+export default async function handler(req, res) {
+  if (req.method === 'OPTIONS') return send(res, 200, { ok: true });
+
+  try {
+    const { db, appUser } = await requireAppUser(req);
+
+    if (req.method === 'GET') {
+      const { data, error } = await db
+        .from('motocicletas')
+        .select('*')
+        .eq('usuario_id', appUser.id)
+        .order('criado_em', { ascending: false });
+      if (error) throw error;
+      return send(res, 200, { data });
+    }
+
+    if (req.method === 'POST') {
+      const body = req.body || {};
+      if (typeof body.modelo !== 'string' || !body.modelo.trim()) {
+        return send(res, 400, { error: 'O modelo é obrigatório.' });
+      }
+
+      const cilindrada = Number(body.cilindrada);
+      const consumo = body.consumo_km_l == null || body.consumo_km_l === ''
+        ? null
+        : Number(body.consumo_km_l);
+      if (!Number.isInteger(cilindrada) || cilindrada <= 0) {
+        return send(res, 400, { error: 'Cilindrada deve ser um inteiro positivo.' });
+      }
+      if (consumo !== null && (!Number.isFinite(consumo) || consumo <= 0)) {
+        return send(res, 400, { error: 'Consumo deve ser positivo.' });
+      }
+
+      const { data, error } = await db
+        .from('motocicletas')
+        .insert({
+          usuario_id: appUser.id,
+          modelo: body.modelo.trim(),
+          cilindrada,
+          consumo_km_l: consumo,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return send(res, 201, { data });
+    }
+
+    return onlyMethods(res, ['GET', 'POST', 'OPTIONS']);
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
