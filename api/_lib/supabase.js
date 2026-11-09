@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js';
-import { randomUUID } from 'node:crypto';
 
 export function getSupabase() {
   const url = process.env.SUPABASE_URL;
@@ -33,7 +32,7 @@ async function findAppUser(db, authUser) {
   if (!email) throw httpError(403, 'A conta autenticada não tem um e-mail associado.');
 
   // Preserve an existing application profile when its verified e-mail matches.
-  const byEmail = await db.from('usuarios').select(columns).eq('email', authUser.email).maybeSingle();
+  const byEmail = await db.from('usuarios').select(columns).ilike('email', email).maybeSingle();
   if (byEmail.error) throw byEmail.error;
   if (byEmail.data) {
     if (byEmail.data.auth_user_id && byEmail.data.auth_user_id !== authUser.id) {
@@ -65,7 +64,9 @@ async function findAppUser(db, authUser) {
     || metadata.sub
     || authUser.id;
   const profile = {
-    id: randomUUID(),
+    // In this schema usuarios.id references auth.users(id), so use the
+    // authenticated Supabase UUID for new profiles.
+    id: authUser.id,
     auth_user_id: authUser.id,
     nome: metadata.full_name || metadata.name || email.split('@')[0],
     email,
