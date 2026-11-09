@@ -122,6 +122,14 @@ export function onlyMethods(res, methods) {
 export function handleError(res, error) {
   // Avoid returning internal stack traces to clients.
   const status = error.status || 500;
+  // Keep server-side diagnostics for failed authenticated requests without
+  // logging request headers, access tokens, or request bodies.
+  console.error('[strava-motos-api]', JSON.stringify({
+    status,
+    code: error.code || null,
+    name: error.name || 'Error',
+    message: error.message || 'Erro interno da API.',
+  }));
   const message = status >= 500 && !error.status ? 'Erro interno da API.' : error.message;
   return send(res, status, { error: message || 'Erro interno da API.' });
 }

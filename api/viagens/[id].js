@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       const allowed = [
         'titulo', 'motocicleta_id', 'data_inicio', 'data_fim', 'distancia_km',
         'duracao_segundos', 'tempo_movimento_segundos', 'tempo_parado_segundos',
-        'velocidade_media', 'velocidade_maxima',
+        'velocidade_media', 'velocidade_maxima', 'combustivel_estimado_litros',
       ];
       const update = Object.fromEntries(Object.entries(body).filter(([key]) => allowed.includes(key)));
       if ('titulo' in update) {
@@ -43,6 +43,7 @@ export default async function handler(req, res) {
       for (const field of [
         'distancia_km', 'duracao_segundos', 'tempo_movimento_segundos',
         'tempo_parado_segundos', 'velocidade_media', 'velocidade_maxima',
+        'combustivel_estimado_litros',
       ]) {
         if (!(field in update) || update[field] === null) continue;
         const value = Number(update[field]);

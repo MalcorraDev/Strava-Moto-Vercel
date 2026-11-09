@@ -28,6 +28,7 @@ export default async function handler(req, res) {
       for (const field of [
         'distancia_km', 'duracao_segundos', 'tempo_movimento_segundos',
         'tempo_parado_segundos', 'velocidade_media', 'velocidade_maxima',
+        'combustivel_estimado_litros',
       ]) {
         if (body[field] === undefined || body[field] === null || body[field] === '') continue;
         const value = Number(body[field]);
@@ -35,6 +36,31 @@ export default async function handler(req, res) {
           return send(res, 400, { error: `${field} deve ser um número não negativo.` });
         }
         row[field] = value;
+      }
+
+      if (body.pontos_gps !== undefined) {
+        if (!Array.isArray(body.pontos_gps) || body.pontos_gps.length > 20000) {
+          return send(res, 400, { error: 'pontos_gps deve ser uma lista com até 20.000 pontos.' });
+        }
+        const points = [];
+        for (const point of body.pontos_gps) {
+          const latitude = Number(point?.latitude);
+          const longitude = Number(point?.longitude);
+          const accuracy = Number(point?.accuracy_m);
+          const speed = Number(point?.speed_kmh);
+          if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 ||
+              !Number.isFinite(longitude) || longitude < -180 || longitude > 180 ||
+              !Number.isFinite(accuracy) || accuracy < 0 ||
+              !Number.isFinite(speed) || speed < 0) {
+            return send(res, 400, { error: 'Um ponto GPS contém coordenadas ou métricas inválidas.' });
+          }
+          const timestamp = new Date(point.timestamp);
+          if (!point.timestamp || Number.isNaN(timestamp.getTime())) {
+            return send(res, 400, { error: 'Um ponto GPS contém data inválida.' });
+          }
+          points.push({ latitude, longitude, accuracy_m: accuracy, speed_kmh: speed, timestamp: timestamp.toISOString() });
+        }
+        row.pontos_gps = points;
       }
 
       if (body.motocicleta_id) {
