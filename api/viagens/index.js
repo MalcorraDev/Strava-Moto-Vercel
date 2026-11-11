@@ -15,11 +15,17 @@ export default async function handler(req, res) {
         .eq('usuario_id', appUser.id)
         .order('criado_em', { ascending: false });
       if (error) throw error;
-      return send(res, 200, { data });
+      const visibleData = appUser.premium
+        ? data
+        : data.map(({ combustivel_estimado_litros, ...trip }) => trip);
+      return send(res, 200, { data: visibleData });
     }
 
     if (req.method === 'POST') {
       const body = req.body || {};
+      if (body.combustivel_estimado_litros != null && !appUser.premium) {
+        return send(res, 403, { error: 'A estimativa de combustível é um recurso Premium.' });
+      }
       if (typeof body.titulo !== 'string' || !body.titulo.trim()) {
         return send(res, 400, { error: 'O título é obrigatório.' });
       }
@@ -79,6 +85,17 @@ export default async function handler(req, res) {
 
       if (body.data_inicio) row.data_inicio = body.data_inicio;
       if (body.data_fim) row.data_fim = body.data_fim;
+      for (const field of ['data_inicio', 'data_fim']) {
+        if (row[field] === undefined) continue;
+        const parsed = new Date(row[field]);
+        if (Number.isNaN(parsed.getTime())) {
+          return send(res, 400, { error: `${field} deve ser uma data válida.` });
+        }
+        row[field] = parsed.toISOString();
+      }
+      if (row.data_inicio && row.data_fim && row.data_fim < row.data_inicio) {
+        return send(res, 400, { error: 'A data de término não pode ser anterior ao início.' });
+      }
 
       const { data, error } = await db
         .from('viagens')
@@ -86,6 +103,7 @@ export default async function handler(req, res) {
         .select('*, motocicletas(id, modelo)')
         .single();
       if (error) throw error;
+      if (!appUser.premium && data) delete data.combustivel_estimado_litros;
       return send(res, 201, { data });
     }
 

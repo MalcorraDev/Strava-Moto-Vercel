@@ -122,7 +122,14 @@ export function onlyMethods(res, methods) {
 
 export function handleError(res, error) {
   // Avoid returning internal stack traces to clients.
-  const status = error.status || 500;
+  const mapped = {
+    '23503': { status: 409, message: 'Um registro relacionado não existe ou não pertence à sua conta. Atualize os dados e tente novamente.' },
+    '23502': { status: 400, message: 'Faltam dados obrigatórios para salvar este registro.' },
+    '22P02': { status: 400, message: 'Um dos campos enviados tem formato inválido.' },
+    '42703': { status: 500, message: 'O banco ainda não tem as colunas desta versão. Aplique as migrations da pasta supabase/migrations.' },
+    'PGRST204': { status: 500, message: 'O banco ainda não tem as colunas desta versão. Aplique as migrations da pasta supabase/migrations.' },
+  }[error.code];
+  const status = error.status || mapped?.status || 500;
   // Keep server-side diagnostics for failed authenticated requests without
   // logging request headers, access tokens, or request bodies.
   console.error('[strava-motos-api]', JSON.stringify({
@@ -131,6 +138,6 @@ export function handleError(res, error) {
     name: error.name || 'Error',
     message: error.message || 'Erro interno da API.',
   }));
-  const message = status >= 500 && !error.status ? 'Erro interno da API.' : error.message;
+  const message = mapped?.message || (status >= 500 && !error.status ? 'Erro interno da API.' : error.message);
   return send(res, status, { error: message || 'Erro interno da API.' });
 }

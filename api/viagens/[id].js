@@ -26,6 +26,9 @@ export default async function handler(req, res) {
 
     if (req.method === 'PATCH') {
       const body = req.body || {};
+      if (Object.hasOwn(body, 'combustivel_estimado_litros') && body.combustivel_estimado_litros != null && !appUser.premium) {
+        return send(res, 403, { error: 'A estimativa de combustível é um recurso Premium.' });
+      }
       const allowed = [
         'titulo', 'motocicleta_id', 'data_inicio', 'data_fim', 'distancia_km',
         'duracao_segundos', 'tempo_movimento_segundos', 'tempo_parado_segundos',
@@ -75,6 +78,7 @@ export default async function handler(req, res) {
         .maybeSingle();
       if (error) throw error;
       if (!data) return send(res, 404, { error: 'Viagem não encontrada para este usuário.' });
+      if (!appUser.premium) delete data.combustivel_estimado_litros;
       return send(res, 200, { data });
     }
 
